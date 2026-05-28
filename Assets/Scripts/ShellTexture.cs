@@ -26,6 +26,9 @@ public class ShellShader : MonoBehaviour {
     [SerializeField, Range(0f, 1f)]
     float minNoiseThreshold = 0.01f;
 
+    [SerializeField, Range(0f, 1f)]
+    float maxNoiseThreshold = 1f;
+
     private GameObject[] shells;
 
     // Shader properties
@@ -34,7 +37,8 @@ public class ShellShader : MonoBehaviour {
         shellDensityId = Shader.PropertyToID("_Density"),
         shellNumberId = Shader.PropertyToID("_ShellNumber"),
         shellDistanceId = Shader.PropertyToID("_ShellDistance"),
-        shellMinNoiseId = Shader.PropertyToID("_MinNoiseThreshold");
+        shellMinNoiseId = Shader.PropertyToID("_MinNoiseThreshold"),
+        shellMaxNoiseId = Shader.PropertyToID("_MaxNoiseThreshold");
 
     void OnEnable() {
         shells = new GameObject[shellNumber];
@@ -57,6 +61,7 @@ public class ShellShader : MonoBehaviour {
             shellRenderer.SetFloat(shellDistanceId, shellDistance);
             shellRenderer.SetInt("_ShellIndex", i);
             shellRenderer.SetFloat(shellMinNoiseId, minNoiseThreshold);
+            shellRenderer.SetFloat(shellMaxNoiseId, maxNoiseThreshold);
 
 
         }
@@ -76,6 +81,18 @@ public class ShellShader : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
+        // Allow updating shader parameters in real time
+        for (int i = 0; i < shellNumber; ++i) {
+            // Set all the parameters needed by the shader
+            var shellRenderer = shells[i].GetComponent<MeshRenderer>().sharedMaterial;  // avoid duplicating the material on every frame
+            shellRenderer.SetVector(shellColorId, shellColor);
+            shellRenderer.SetInt(shellDensityId, shellDensity);
+            shellRenderer.SetInt(shellNumberId, shellNumber);
+            shellRenderer.SetFloat(shellDistanceId, shellDistance);
+            shellRenderer.SetInt("_ShellIndex", i);
+            shellRenderer.SetFloat(shellMinNoiseId, minNoiseThreshold);
+            shellRenderer.SetFloat(shellMaxNoiseId, maxNoiseThreshold);
+        }
 
     }
 }

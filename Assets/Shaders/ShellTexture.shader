@@ -5,6 +5,7 @@ Shader "Custom/Shell Texture" {
         _ShellNumber ("Shell Number", int) = 16
         _ShellDistance ("Shell Distance", range(0, 1)) = 0.1
         _MinNoiseThreshold ("Minimum Noise Threshold", float) = 0.01
+        _MaxNoiseThreshold ("Maximum Noise Threshold", float) = 0.01
     }
     SubShader {
         Tags { "RenderType" = "Opaque" }
@@ -17,14 +18,15 @@ Shader "Custom/Shell Texture" {
             // make fog work
             // #pragma multi_compile_fog
 
-            #include "UnityCG.cginc"
+            #include "UnityPBSLighting.cginc"
+            #include "AutoLight.cginc"
 
             float4 _ShellColor;                 // The base color of the shells. Is used by the fragment shader to determine the final value after the lighting calculation.
             int _Density;                       // Value used to generate a random number. Gets multiplied by the uv coordinates to generate more strands per uv pair.
             int _ShellNumber;                   // Final number of shells on the mesh. This is used to calculate the desired height between each shells.
             float _ShellDistance;               // Distance between each shell
             int _ShellIndex;                    // Tells the GPU which shell is being computed.
-            float _MinNoiseThreshold;
+            float _MinNoiseThreshold, _MaxNoiseThreshold;  // Used to linearly interpolate the result of the hash function.
 
             // The vertex_data struct collects data per each vertex of the mesh
             // this structure will be read by the vertex shader
@@ -88,7 +90,10 @@ Shader "Custom/Shell Texture" {
             // SV_Target means the target is the output render target color
 
             float4 fragment_program(vertex2fragment i) : SV_Target {
-                float2 local_uv = i.uv * _Density;
+                float2 local_uv = i.uv * _Density;  // multiply the uv coordinates by the density parameters, which allow the surface to have more strands in it.
+
+
+                float ndotl = DotClamped(i.normal, _WorldSpaceLightPos0);  // lambertian diffuse is the dot product between the normal and the light direction.
 
                 uint2 seed_uv = local_uv;
 
@@ -96,16 +101,15 @@ Shader "Custom/Shell Texture" {
 
                 float height = float(_ShellIndex)/float(_ShellNumber);
 
-                float random = hash11(seed);
+                float random = lerp(_MinNoiseThreshold, _MaxNoiseThreshold, hash11(seed));  // Interpolates the result of the hash into controllable parameters, making it possible to customize the look
 
-                float4 pixel_color = _ShellColor;
                 if (random < height) {
-                    // pixel_color = float4(0,0,0,0);
                     discard;
                 }
 
-                float ambientOcclusion = height;  // By multiplying the pixel color by its height value, a dead-simple ambient occlusion can be faked.
-                return pixel_color * ambientOcclusion;  // Fake a simple lighting, darkening shells based on how low the index is.
+                float ambientOcclusion = 1;  // By multiplying the pixel color by its height value, a dead-simple ambient occlusion can be faked.
+                // float ambientOcclusion = height;  // By multiplying the pixel color by its height value, a dead-simple ambient occlusion can be faked.
+                return _ShellColor * ndotl *  ambientOcclusion;  // Shade the pixel based on the lighting calculation and the (fake) ambient occlusion factor.
 
             }
             ENDCG
